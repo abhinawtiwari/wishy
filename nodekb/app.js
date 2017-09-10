@@ -5,8 +5,11 @@ const bodyParser=require('body-parser');
 const expressValidator=require('express-validator');
 const flash=require('connect-flash');
 const session=require('express-session');
+const passport=require('passport');
+const config=require('./config/database');
 
-mongoose.connect('mongodb://localhost/nodekb');
+
+mongoose.connect(config.database);
 let db=mongoose.connection;
 
 
@@ -43,8 +46,7 @@ app.use(express.static(path.join(__dirname,'public')));
 app.use(session({
   secret: 'keyboard cat',
   resave: false,
-  saveUninitialized: true,
-  cookie:(secure:true)
+  saveUninitialized: true
 }));
 
 //Express Messages Middleware
@@ -66,12 +68,24 @@ app.use(expressValidator({
     }
     return{
       param:formParam,
-      msg=msg,
-      value=value
+      msg:msg,
+      value:value
     };
 
   }
 }));
+
+//Passport Config
+require('./config/passport')(passport);
+//Passport Middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.get('*',function(req,res,next){
+  res.locals.user=req.user ||null;
+  next();
+});
+
 
 //Home Route
 
@@ -113,85 +127,12 @@ body:'This is article three'
   });*/
 });
 
+//Route Files
+let articles=require('./routes/article');
+let users=require('./routes/users');
+app.use('/articles',articles);
+app.use('/users',users);
 
-//Get Single Article
-app.get('/article/:id',function(req,res){
-  Article.findById(req.params.id,function(err,article){
-    //console.log(article);
-    res.render('articles',{
-      article:article
-    });
-  });
-});
-//Add Route
-app.get('/articles/add', function(req,res){
-  res.render('add_articles',{
-    title:'add articles'
-    //articles: articles;
-  });
-});
-
-//Add Submit POST Route
-
-app.post('/articles/add', function(req,res){
-  /*console.log('Submitted');
-    console.log(req.body.Title);
-  return;*/
- let article=new Article();
-  article.title=req.body.title;
-  article.author=req.body.author;
-  article.body=req.body.body;
-
-  article.save(function(err){
-    if(err){
-    console.log(err);
-  }else{
-    res.redirect('/');
-  }
-  });
-});
-
-//Load Edit form
-app.get('/article/edit/:id',function(req,res){
-  Article.findById(req.params.id,function(err,article){
-    //console.log(article);
-    res.render('edit_articles',{
-      title: 'Edit Article',
-      article:article
-    });
-  });
-});
-
-// Update Submit POST Route
-app.post('/articles/edit/:id', function(req,res){
-  /*console.log('Submitted');
-    console.log(req.body.Title);
-  return;*/
- let article={};
-  article.title=req.body.title;
-  article.author=req.body.author;
-  article.body=req.body.body;
-
- let query={_id:req.params.id};
-
-  Article.update(query,article,function(err){
-    if(err){
-    console.log(err);
-  }else{
-    res.redirect('/');
-  }
-  });
-});
-
-app.delete('/articles/:id',function(req,res){
-  let query={_id:req.params.id}
-  Article.remove(query,function(err){
-    if(err){
-      console.log(err);
-    }
-    res.send('Success');
-  });
-});
 //Start Server
 app.listen(3000,function(){
   console.log('Server started on port 3000....');
